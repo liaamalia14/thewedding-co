@@ -77,7 +77,7 @@
             <div class="absolute inset-0 rounded-full border-4 border-brand-100"></div>
             <div class="absolute inset-0 rounded-full border-4 border-brand-500 border-t-transparent animate-spin"></div>
         </div>
-        <p class="text-sm font-medium text-slate-500 animate-pulse">Menyiapkan workspace...</p>
+        <p class="text-sm font-medium text-slate-500 animate-pulse" x-text="loadingText">Menyiapkan workspace...</p>
     </div>
 
     <!-- Toast Notification -->
@@ -148,8 +148,8 @@
             </div>
             
             <div class="flex items-center gap-3">
-                <button class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-brand-600 flex items-center justify-center shadow-sm transition-colors">
-                    <i class="far fa-bell"></i>
+                <button @click="fetchData()" class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-brand-600 flex items-center justify-center shadow-sm transition-colors" title="Refresh Data">
+                    <i class="fas fa-sync-alt"></i>
                 </button>
                 <button @click="openModal('settings')" class="md:hidden w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center shadow-sm">
                     <i class="fas fa-cog"></i>
@@ -214,7 +214,7 @@
 
                     <!-- Quick Stats Row -->
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <!-- Total Anggaran -->
+                        <!-- Target Anggaran -->
                         <div class="bg-white p-5 rounded-2xl shadow-card border border-brand-50 flex flex-col justify-center items-center text-center group relative">
                             <button @click="openModal('settings')" class="absolute top-2 right-2 text-slate-300 hover:text-brand-500 hidden md:group-hover:block transition-colors"><i class="fas fa-edit"></i></button>
                             <i class="fas fa-bullseye text-slate-300 text-xl mb-2"></i>
@@ -231,7 +231,7 @@
                         <div class="bg-white p-5 rounded-2xl shadow-card border border-brand-50 flex flex-col justify-center items-center text-center">
                             <i class="fas fa-wallet text-brand-300 text-xl mb-2"></i>
                             <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Tersedia</p>
-                            <p class="text-lg md:text-xl font-bold transition-colors" :class="(totalTabungan - totalPengeluaran) < 0 ? 'text-red-500' : 'text-brand-600'" x-text="formatRupiah(totalTabungan - totalPengeluaran)"></p>
+                            <p class="text-lg md:text-xl font-bold transition-colors" :class="ketersediaanDana < 0 ? 'text-red-500' : 'text-brand-600'" x-text="formatRupiah(ketersediaanDana)"></p>
                         </div>
                         <!-- Tugas Pending -->
                         <div class="bg-white p-5 rounded-2xl shadow-card border border-brand-50 flex flex-col justify-center items-center text-center">
@@ -284,7 +284,7 @@
                                                 <span x-show="item.Catatan" class="text-[10px] text-slate-500 line-clamp-1" x-text="item.Catatan"></span>
                                             </div>
                                         </div>
-                                        <span class="text-xs text-slate-400 font-medium flex items-center gap-1 whitespace-nowrap">
+                                        <span class="text-xs text-slate-400 font-medium flex items-center gap-1 whitespace-nowrap" x-text="formatDate(item.Timeline)"></span>
                                     </div>
                                 </template>
                                 <div x-show="db.Checklist.filter(i => i.Status !== 'Selesai').length === 0" class="text-center py-8 text-slate-400 text-sm font-medium">
@@ -303,7 +303,6 @@
                             </div>
                             
                             <div class="space-y-4 flex-1">
-                                <!-- Get latest transactions from Pengeluaran -->
                                 <template x-for="item in [...(db.Pengeluaran || [])].sort((a,b) => new Date(b.Tanggal) - new Date(a.Tanggal)).slice(0, 4)" :key="item.ID">
                                     <div class="flex items-center justify-between border-b border-slate-50 pb-3 last:border-0">
                                         <div class="flex items-center gap-3">
@@ -312,11 +311,10 @@
                                             </div>
                                             <div class="min-w-0">
                                                 <p class="text-sm font-bold text-slate-700 truncate" x-text="item.Item"></p>
-                                                <!-- Added Date & Category -->
                                                 <p class="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
                                                     <span x-text="item.Kategori" class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded"></span>
                                                     <span>•</span>
-                                                    <span x-text="formatDate(item.Tanggal) || 'Tgl tidak ada'"></span>
+                                                    <span x-text="formatDate(item.Tanggal)"></span>
                                                 </p>
                                             </div>
                                         </div>
@@ -341,7 +339,7 @@
                         <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
                             <div>
                                 <h2 class="text-2xl font-bold text-slate-800 font-serif">Dana Tabungan</h2>
-                                <p class="text-sm text-slate-500 font-medium mt-1">Pantau uang masuk untuk persiapan pernikahan</p>
+                                <p class="text-sm text-slate-500 font-medium mt-1">Pantau uang masuk dan progres target tabungan pernikahan</p>
                             </div>
                             <div class="flex gap-2">
                                 <button @click="openModal('settings')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2" title="Edit Target Tabungan">
@@ -376,21 +374,21 @@
                             
                             <div class="flex justify-between items-center text-xs font-semibold text-slate-500">
                                 <span>Progress: <span class="text-slate-800" x-text="Math.min(Math.round((totalTabungan / (settings.Target_Tabungan || 1)) * 100) || 0, 100) + '%'"></span></span>
-                                <span class="text-slate-400">Sisa: <span x-text="formatRupiah(Math.max((settings.Target_Tabungan || 0) - totalTabungan, 0))"></span></span>
+                                <span class="text-slate-400">Sisa Target: <span x-text="formatRupiah(Math.max((settings.Target_Tabungan || 0) - totalTabungan, 0))"></span></span>
                             </div>
 
                             <!-- Visual Progress Bar for Pria vs Wanita (Sub Progress) -->
                             <div class="mt-6 pt-4 border-t border-slate-200/60">
-                                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Porsi Kontribusi</p>
-                                <div class="w-full h-2 flex rounded-full overflow-hidden bg-slate-200 shadow-inner">
-                                    <div class="bg-blue-400 h-full transition-all duration-500" :style="`width: ${(getTabunganBy('Pria') / (totalTabungan || 1)) * 100}%`"></div>
-                                    <div class="bg-brand-400 h-full transition-all duration-500" :style="`width: ${(getTabunganBy('Wanita') / (totalTabungan || 1)) * 100}%`"></div>
-                                    <div class="bg-amber-400 h-full transition-all duration-500" :style="`width: ${(getTabunganBy('Bersama') / (totalTabungan || 1)) * 100}%`"></div>
+                                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Porsi Kontribusi Pengepul</p>
+                                <div class="w-full h-3 flex rounded-full overflow-hidden bg-slate-200 shadow-inner">
+                                    <div class="bg-blue-400 h-full transition-all duration-500" :style="`width: ${(getTabunganBy('Pria') / (totalTabungan || 1)) * 100}%`" title="Pria"></div>
+                                    <div class="bg-brand-400 h-full transition-all duration-500" :style="`width: ${(getTabunganBy('Wanita') / (totalTabungan || 1)) * 100}%`" title="Wanita"></div>
+                                    <div class="bg-amber-400 h-full transition-all duration-500" :style="`width: ${(getTabunganBy('Bersama') / (totalTabungan || 1)) * 100}%`" title="Bersama"></div>
                                 </div>
-                                <div class="flex flex-wrap gap-4 mt-3 text-xs font-semibold">
-                                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span><span class="text-slate-600">Pria: <span class="text-slate-800" x-text="formatRupiah(getTabunganBy('Pria'))"></span></span></div>
-                                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-brand-400"></span><span class="text-slate-600">Wanita: <span class="text-slate-800" x-text="formatRupiah(getTabunganBy('Wanita'))"></span></span></div>
-                                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="text-slate-600">Bersama: <span class="text-slate-800" x-text="formatRupiah(getTabunganBy('Bersama'))"></span></span></div>
+                                <div class="flex flex-wrap gap-6 mt-3 text-xs font-semibold">
+                                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-400"></span><span class="text-slate-600">Pria: <span class="text-slate-800" x-text="formatRupiah(getTabunganBy('Pria')) + ' (' + Math.round((getTabunganBy('Pria')/(totalTabungan||1))*100) + '%)'"></span></span></div>
+                                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-brand-400"></span><span class="text-slate-600">Wanita: <span class="text-slate-800" x-text="formatRupiah(getTabunganBy('Wanita')) + ' (' + Math.round((getTabunganBy('Wanita')/(totalTabungan||1))*100) + '%)'"></span></span></div>
+                                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-400"></span><span class="text-slate-600">Bersama: <span class="text-slate-800" x-text="formatRupiah(getTabunganBy('Bersama')) + ' (' + Math.round((getTabunganBy('Bersama')/(totalTabungan||1))*100) + '%)'"></span></span></div>
                                 </div>
                             </div>
                         </div>
@@ -401,7 +399,6 @@
                         <h3 class="text-lg font-bold text-slate-800 mb-6 font-serif">Riwayat Mutasi Masuk</h3>
                         
                         <div class="space-y-3">
-                            <!-- Empty State -->
                             <div x-show="!db.Tabungan || db.Tabungan.length === 0" class="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
                                 <p class="text-slate-500 font-medium">Belum ada tabungan tercatat.</p>
                             </div>
@@ -411,7 +408,7 @@
                                     <div class="flex items-center gap-4">
                                         <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-sm"
                                              :class="item.Penyetor === 'Pria' ? 'bg-blue-400' : (item.Penyetor === 'Wanita' ? 'bg-brand-400' : 'bg-amber-400')">
-                                            <span x-text="item.Penyetor.charAt(0)"></span>
+                                            <span x-text="(item.Penyetor || 'P').charAt(0)"></span>
                                         </div>
                                         <div>
                                             <h4 class="text-sm font-bold text-slate-800" x-text="item.Catatan"></h4>
@@ -421,12 +418,11 @@
                                             </p>
                                         </div>
                                     </div>
-                                    <div class="flex flex-col items-end gap-1.5">
+                                    <div class="flex items-center gap-4">
                                         <span class="text-base font-bold text-emerald-600" x-text="'+ ' + formatRupiah(item.Nominal)"></span>
-                                        <!-- Action buttons -->
-                                        <div class="flex gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button @click="openModal('tabungan', item)" class="text-slate-400 hover:text-blue-500 text-xs px-2 py-1 bg-slate-50 rounded-md border border-slate-100"><i class="fas fa-edit"></i></button>
-                                            <button @click="deleteItem('Tabungan', item.ID)" class="text-slate-400 hover:text-red-500 text-xs px-2 py-1 bg-slate-50 rounded-md border border-slate-100"><i class="fas fa-trash"></i></button>
+                                        <div class="flex gap-2">
+                                            <button @click="openModal('tabungan', item)" class="text-slate-400 hover:text-blue-500 text-xs px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-100"><i class="fas fa-edit"></i></button>
+                                            <button @click="deleteItem('Tabungan', item.ID)" class="text-slate-400 hover:text-red-500 text-xs px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-100"><i class="fas fa-trash"></i></button>
                                         </div>
                                     </div>
                                 </div>
@@ -441,14 +437,14 @@
                     <div class="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-2">
                         <div>
                             <h2 class="text-2xl font-bold text-slate-800 font-serif">Rincian Anggaran</h2>
-                            <p class="text-sm text-slate-500 mt-1 font-medium">Kelola estimasi dan realisasi budget pernikahanmu.</p>
+                            <p class="text-sm text-slate-500 mt-1 font-medium">Kelola estimasi pos anggaran dan pantau realisasi pembayarannya.</p>
                         </div>
                         <button @click="openModal('vendor')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-md shadow-brand-200 transition-all active:scale-95 flex items-center justify-center gap-2">
                             <i class="fas fa-plus"></i> Tambah Anggaran
                         </button>
                     </div>
 
-                    <!-- Summary Cards Matching Reference Image -->
+                    <!-- Summary Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] border-2 border-brand-200 text-center relative group shadow-[0_4px_20px_-5px_rgba(251,113,133,0.15)] flex flex-col justify-center">
                             <button @click="openModal('settings')" class="absolute top-4 right-5 text-slate-300 hover:text-brand-500 hidden md:group-hover:block transition-colors" title="Edit Target Total"><i class="fas fa-edit"></i></button>
@@ -467,9 +463,8 @@
 
                     <!-- Table Format Rincian Biaya -->
                     <div class="bg-white border-2 border-brand-200 rounded-[2rem] overflow-hidden shadow-sm mt-4">
-                        <!-- Desktop Header -->
                         <div class="hidden md:grid grid-cols-12 gap-4 px-6 py-5 bg-brand-50/40 border-b border-brand-100 text-[10px] font-bold text-brand-900 uppercase tracking-widest items-center">
-                            <div class="col-span-3">Item</div>
+                            <div class="col-span-3">Item / Vendor</div>
                             <div class="col-span-2 text-center">Rencana</div>
                             <div class="col-span-2 text-center">Realisasi</div>
                             <div class="col-span-2 text-center">Selisih</div>
@@ -477,48 +472,38 @@
                             <div class="col-span-1 text-right">Aksi</div>
                         </div>
                         
-                        <!-- Empty State -->
                         <div x-show="!db.Budget_Vendor || db.Budget_Vendor.length === 0" class="text-center py-16 px-6">
                             <div class="relative w-20 h-20 mx-auto mb-6">
-                                <!-- Flying Money Icon Mockup -->
                                 <div class="absolute inset-0 bg-emerald-400 rounded-xl transform -rotate-12 flex items-center justify-center text-white text-3xl shadow-lg border-2 border-white z-10"><i class="fas fa-money-bill-wave"></i></div>
-                                <div class="absolute -left-4 top-4 bg-white shadow-sm border border-slate-100 rounded-full w-10 h-6 transform rotate-45 z-0 flex items-center justify-center"><i class="fas fa-wing text-slate-300 text-xs"></i></div>
-                                <div class="absolute -right-4 top-4 bg-white shadow-sm border border-slate-100 rounded-full w-10 h-6 transform -rotate-45 z-0 flex items-center justify-center"><i class="fas fa-wing text-slate-300 text-xs scale-x-[-1]"></i></div>
                             </div>
                             <p class="text-xl md:text-2xl font-bold font-serif text-brand-900 mb-3">Belum ada rincian biaya</p>
-                            <p class="text-sm text-brand-600 max-w-md mx-auto opacity-80">Mulai masukkan rencana pengeluaran Anda untuk mengontrol budget pernikahan dengan tepat.</p>
+                            <p class="text-sm text-brand-600 max-w-md mx-auto opacity-80">Mulai masukkan rencana anggaran Anda untuk mengontrol pengeluaran pernikahan.</p>
                         </div>
 
-                        <!-- Table Rows -->
                         <div class="divide-y divide-brand-50">
-                            <template x-for="item in db.Budget_Vendor.sort((a,b) => new Date(b.Tanggal_Realisasi || 0) - new Date(a.Tanggal_Realisasi || 0))" :key="item.ID">
+                            <template x-for="item in db.Budget_Vendor" :key="item.ID">
                                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 px-6 py-5 items-center hover:bg-slate-50 transition-colors group cursor-pointer" @click="openVendorDetail(item)">
                                     
-                                    <!-- Item Name & Category -->
                                     <div class="col-span-1 md:col-span-3 flex flex-col md:block pb-2 md:pb-0 border-b md:border-0 border-slate-100">
                                         <h4 class="font-bold text-slate-800 text-base" x-text="item.Nama_Vendor"></h4>
                                         <span class="text-[10px] font-bold text-brand-500 uppercase mt-0.5" x-text="item.Kategori"></span>
                                     </div>
                                     
-                                    <!-- Rencana -->
                                     <div class="col-span-1 md:col-span-2 flex justify-between md:block text-left md:text-center">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase md:hidden block">Rencana</span>
                                         <span class="font-semibold text-slate-700" x-text="formatRupiah(item.Estimasi)"></span>
                                     </div>
 
-                                    <!-- Realisasi (Otomatis dari Pengeluaran) -->
                                     <div class="col-span-1 md:col-span-2 flex justify-between md:block text-left md:text-center">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase md:hidden block">Realisasi</span>
                                         <span class="font-semibold text-brand-600" x-text="formatRupiah(getVendorRealisasi(item))"></span>
                                     </div>
 
-                                    <!-- Selisih -->
                                     <div class="col-span-1 md:col-span-2 flex justify-between md:block text-left md:text-center">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase md:hidden block">Selisih</span>
                                         <span class="font-semibold" :class="(item.Estimasi - getVendorRealisasi(item)) >= 0 ? 'text-emerald-600' : 'text-red-500'" x-text="formatRupiah(item.Estimasi - getVendorRealisasi(item))"></span>
                                     </div>
 
-                                    <!-- Status -->
                                     <div class="col-span-1 md:col-span-2 flex justify-between md:block text-left md:text-center pt-2 md:pt-0">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase md:hidden block">Status</span>
                                         <span class="px-3 py-1 text-[10px] rounded-full font-bold uppercase tracking-wider inline-block" 
@@ -530,12 +515,11 @@
                                               }" x-text="item.Status"></span>
                                     </div>
 
-                                    <!-- Action -->
                                     <div class="col-span-1 hidden md:flex justify-end gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button @click.stop="openModal('vendor', item)" class="text-slate-400 hover:text-blue-500 bg-white border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-edit text-xs"></i></button>
-                                        <button @click.stop="deleteItem('Budget_Vendor', item.ID)" class="text-slate-400 hover:text-red-500 bg-white border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-trash text-xs"></i></button>
+                                        <button @click.stop="openModal('vendor', item)" class="text-slate-400 hover:text-blue-500 bg-white border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center shadow-sm" title="Edit"><i class="fas fa-edit text-xs"></i></button>
+                                        <button @click.stop="deleteItem('Budget_Vendor', item.ID)" class="text-slate-400 hover:text-red-500 bg-white border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center shadow-sm" title="Hapus"><i class="fas fa-trash text-xs"></i></button>
                                     </div>
-                                    <!-- Mobile Action buttons -->
+                                    
                                     <div class="col-span-1 flex md:hidden justify-end gap-3 pt-3 border-t border-slate-100 mt-1">
                                         <button @click.stop="openModal('vendor', item)" class="text-sm font-semibold text-blue-500 flex items-center gap-1"><i class="fas fa-edit"></i> Edit</button>
                                         <button @click.stop="deleteItem('Budget_Vendor', item.ID)" class="text-sm font-semibold text-red-500 flex items-center gap-1"><i class="fas fa-trash"></i> Hapus</button>
@@ -547,86 +531,31 @@
                     </div>
                 </div>
 
-                <!-- TAB: CHECKLIST -->
-                <div x-show="activeTab === 'checklist'" x-transition.opacity x-cloak class="space-y-6">
-                    
-                    <div class="flex flex-col md:flex-row justify-between md:items-end gap-4 bg-white p-6 md:p-8 rounded-3xl shadow-card border border-brand-50">
-                        <div>
-                            <h2 class="text-2xl font-bold text-slate-800 font-serif">To-Do List</h2>
-                            <p class="text-sm text-slate-500 mt-1 font-medium">Pantau tugas dan jadwal persiapan pernikahanmu</p>
-                        </div>
-                        <button @click="openModal('checklist')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-md shadow-brand-200 transition-all active:scale-95 flex items-center justify-center gap-2">
-                            <i class="fas fa-plus"></i> Tambah Tugas
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div x-show="!db.Checklist || db.Checklist.length === 0" class="col-span-full text-center py-12 bg-white rounded-3xl border border-slate-100">
-                            <p class="text-slate-500 font-medium">Belum ada checklist tugas.</p>
-                        </div>
-
-                        <template x-for="item in db.Checklist" :key="item.ID">
-                            <div class="group bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-start hover:border-brand-200 transition-all relative">
-                                <div class="relative pt-1 shrink-0">
-                                    <input type="checkbox" :checked="item.Status === 'Selesai'" @change="toggleChecklist(item)"
-                                           class="peer w-6 h-6 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer appearance-none checked:bg-brand-600 checked:border-brand-600 shadow-sm bg-slate-50 border transition-all">
-                                    <i class="fas fa-check absolute inset-0 m-auto flex items-center justify-center text-white text-xs opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="text-base font-bold truncate transition-colors" :class="item.Status === 'Selesai' ? 'line-through text-slate-400' : 'text-slate-800'" x-text="item.Tugas"></h4>
-                                    <!-- Date explicit visual -->
-                                    <div class="flex items-center gap-3 mt-1.5">
-                                        <p class="text-xs text-slate-500 font-medium flex items-center gap-1">
-                                            <i class="far fa-calendar text-[10px] text-brand-400"></i>
-                                            <span x-text="formatDate(item.Timeline)"></span>
-                                        </p>
-                                        <p class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">Prioritas <span x-text="item.Prioritas"></span></p>
-                                    </div>
-                                    <!-- Enhanced Notes Field -->
-                                    <div x-show="item.Catatan" class="mt-3 relative">
-                                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-200 rounded-full"></div>
-                                        <p class="text-xs text-slate-600 bg-slate-50 py-2 pl-3 pr-2 rounded-r-lg italic" x-text="item.Catatan"></p>
-                                    </div>
-                                </div>
-                                <!-- Actions -->
-                                <div class="absolute right-4 top-4 flex gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button @click="openModal('checklist', item)" class="text-slate-400 hover:text-blue-500 text-xs"><i class="fas fa-edit"></i></button>
-                                    <button @click="deleteItem('Checklist', item.ID)" class="text-slate-400 hover:text-red-500 text-xs"><i class="fas fa-trash"></i></button>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-
                 <!-- TAB: PENGELUARAN -->
                 <div x-show="activeTab === 'pengeluaran'" x-transition.opacity x-cloak class="space-y-6">
                     
-                    <!-- Header Info Pengeluaran -->
                     <div class="flex flex-col md:flex-row justify-between md:items-end gap-4 bg-white p-6 md:p-8 rounded-3xl shadow-card border border-brand-50">
                         <div>
                             <h2 class="text-2xl font-bold text-slate-800 font-serif">Catatan Pengeluaran</h2>
-                            <p class="text-sm text-slate-500 mt-1 font-medium">Pantau setiap arus kas keluar untuk pernikahanmu</p>
+                            <p class="text-sm text-slate-500 mt-1 font-medium">Kelola dan catat setiap arus kas keluar untuk pernikahanmu.</p>
                         </div>
                         <button @click="openModal('pengeluaran')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-md shadow-brand-200 transition-all active:scale-95 flex items-center justify-center gap-2">
-                            <i class="fas fa-plus"></i> Tambah Pengeluaran
+                            <i class="fas fa-plus"></i> Catat Pengeluaran
                         </button>
                     </div>
 
-                    <!-- Main List Area -->
                     <div class="bg-white rounded-3xl shadow-card border border-brand-50 overflow-hidden">
                         <div class="p-5 md:p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                            <span class="text-sm font-bold text-slate-600">Total Pengeluaran:</span>
-                            <span class="text-lg md:text-xl font-bold text-brand-600" x-text="formatRupiah(db.Pengeluaran?.reduce((s, i) => s + (Number(i.Nominal) || 0), 0) || 0)"></span>
+                            <span class="text-sm font-bold text-slate-600">Total Pengeluaran Tercatat:</span>
+                            <span class="text-lg md:text-xl font-bold text-brand-600" x-text="formatRupiah(totalPengeluaran)"></span>
                         </div>
                         
                         <div class="p-5 md:p-6 space-y-3">
-                            <!-- Empty State -->
                             <div x-show="!db.Pengeluaran || db.Pengeluaran.length === 0" class="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
                                 <i class="fas fa-receipt text-3xl text-slate-300 mb-3"></i>
                                 <p class="text-slate-500 font-medium text-sm">Belum ada pengeluaran yang dicatat.</p>
                             </div>
 
-                            <!-- Item List -->
                             <template x-for="item in (db.Pengeluaran || []).sort((a,b) => new Date(b.Tanggal) - new Date(a.Tanggal))" :key="item.ID">
                                 <div class="group flex flex-col md:flex-row md:items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:shadow-sm transition-all bg-white gap-4 relative">
                                     <div class="flex items-start gap-4">
@@ -643,10 +572,10 @@
                                         </div>
                                     </div>
                                     <div class="flex flex-row md:flex-col justify-between items-end gap-2 border-t md:border-t-0 border-slate-50 pt-3 md:pt-0">
-                                        <span class="text-base font-bold text-slate-800" x-text="formatRupiah(item.Nominal)"></span>
+                                        <span class="text-base font-bold text-slate-800" x-text="'- ' + formatRupiah(item.Nominal)"></span>
                                         <div class="flex gap-2">
-                                            <button @click="openModal('pengeluaran', item)" class="text-slate-400 hover:text-blue-500 text-xs w-7 h-7 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors"><i class="fas fa-edit"></i></button>
-                                            <button @click="deleteItem('Pengeluaran', item.ID)" class="text-slate-400 hover:text-red-500 text-xs w-7 h-7 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors"><i class="fas fa-trash"></i></button>
+                                            <button @click="openModal('pengeluaran', item)" class="text-slate-400 hover:text-blue-500 text-xs w-7 h-7 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors" title="Edit"><i class="fas fa-edit"></i></button>
+                                            <button @click="deleteItem('Pengeluaran', item.ID)" class="text-slate-400 hover:text-red-500 text-xs w-7 h-7 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors" title="Hapus"><i class="fas fa-trash"></i></button>
                                         </div>
                                     </div>
                                 </div>
@@ -695,7 +624,6 @@
                     <!-- List Tamu -->
                     <div class="bg-white rounded-3xl shadow-card border border-brand-50 overflow-hidden mt-4">
                         <div class="p-5 md:p-6 space-y-3">
-                            <!-- Empty State -->
                             <div x-show="!db.Tamu || db.Tamu.length === 0" class="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
                                 <i class="fas fa-address-book text-3xl text-slate-300 mb-3"></i>
                                 <p class="text-slate-500 font-medium text-sm">Belum ada tamu undangan yang ditambahkan.</p>
@@ -728,10 +656,9 @@
                                             </a>
                                         </div>
                                         
-                                        <!-- Actions -->
                                         <div class="flex gap-2">
-                                            <button @click="openModal('tamu', item)" class="text-slate-400 hover:text-blue-500 text-xs w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors"><i class="fas fa-edit"></i></button>
-                                            <button @click="deleteItem('Tamu', item.ID)" class="text-slate-400 hover:text-red-500 text-xs w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors"><i class="fas fa-trash"></i></button>
+                                            <button @click="openModal('tamu', item)" class="text-slate-400 hover:text-blue-500 text-xs w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors" title="Edit"><i class="fas fa-edit"></i></button>
+                                            <button @click="deleteItem('Tamu', item.ID)" class="text-slate-400 hover:text-red-500 text-xs w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 transition-colors" title="Hapus"><i class="fas fa-trash"></i></button>
                                         </div>
                                     </div>
                                 </div>
@@ -740,12 +667,59 @@
                     </div>
                 </div>
 
+                <!-- TAB: CHECKLIST -->
+                <div x-show="activeTab === 'checklist'" x-transition.opacity x-cloak class="space-y-6">
+                    
+                    <div class="flex flex-col md:flex-row justify-between md:items-end gap-4 bg-white p-6 md:p-8 rounded-3xl shadow-card border border-brand-50">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 font-serif">To-Do List</h2>
+                            <p class="text-sm text-slate-500 mt-1 font-medium">Pantau tugas dan jadwal persiapan pernikahanmu</p>
+                        </div>
+                        <button @click="openModal('checklist')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-md shadow-brand-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i> Tambah Tugas
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div x-show="!db.Checklist || db.Checklist.length === 0" class="col-span-full text-center py-12 bg-white rounded-3xl border border-slate-100">
+                            <p class="text-slate-500 font-medium">Belum ada checklist tugas.</p>
+                        </div>
+
+                        <template x-for="item in db.Checklist" :key="item.ID">
+                            <div class="group bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-start hover:border-brand-200 transition-all relative">
+                                <div class="relative pt-1 shrink-0">
+                                    <input type="checkbox" :checked="item.Status === 'Selesai'" @change="toggleChecklist(item)"
+                                           class="peer w-6 h-6 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer appearance-none checked:bg-brand-600 checked:border-brand-600 shadow-sm bg-slate-50 border transition-all">
+                                    <i class="fas fa-check absolute inset-0 m-auto flex items-center justify-center text-white text-xs opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="text-base font-bold truncate transition-colors" :class="item.Status === 'Selesai' ? 'line-through text-slate-400' : 'text-slate-800'" x-text="item.Tugas"></h4>
+                                    <div class="flex items-center gap-3 mt-1.5">
+                                        <p class="text-xs text-slate-500 font-medium flex items-center gap-1">
+                                            <i class="far fa-calendar text-[10px] text-brand-400"></i>
+                                            <span x-text="formatDate(item.Timeline)"></span>
+                                        </p>
+                                        <p class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">Prioritas <span x-text="item.Prioritas"></span></p>
+                                    </div>
+                                    <div x-show="item.Catatan" class="mt-3 relative">
+                                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-200 rounded-full"></div>
+                                        <p class="text-xs text-slate-600 bg-slate-50 py-2 pl-3 pr-2 rounded-r-lg italic" x-text="item.Catatan"></p>
+                                    </div>
+                                </div>
+                                <div class="absolute right-4 top-4 flex gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button @click="openModal('checklist', item)" class="text-slate-400 hover:text-blue-500 text-xs" title="Edit"><i class="fas fa-edit"></i></button>
+                                    <button @click="deleteItem('Checklist', item.ID)" class="text-slate-400 hover:text-red-500 text-xs" title="Hapus"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
             </div>
         </div>
     </main>
 
     <!-- MODALS -->
-    <!-- Datalist untuk menyimpan pilihan kategori dinamis -->
     <datalist id="kategoriList">
         <template x-for="cat in budgetCategoriesOnly" :key="cat">
             <option :value="cat"></option>
@@ -905,7 +879,7 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Tautkan ke Pos Anggaran (Opsional)</label>
                         <select x-model="formPengeluaran.Vendor_ID" @change="autoFillCategory()" class="w-full border border-slate-200 rounded-xl p-3 bg-slate-50 outline-none focus:ring-2 focus:ring-brand-500">
-                            <option value="">-- Tidak ditautkan --</option>
+                            <option value="">-- Tidak ditautkan (Luar Anggaran) --</option>
                             <template x-for="v in db.Budget_Vendor" :key="v.ID">
                                 <option :value="v.ID" x-text="v.Nama_Vendor + ' (' + v.Kategori + ')'"></option>
                             </template>
@@ -913,7 +887,6 @@
                         <p class="text-[10px] text-slate-400 mt-1">*Jika ditautkan, nominal otomatis masuk ke Realisasi anggaran tersebut.</p>
                     </div>
                     
-                    <!-- Form Status Vendor (Muncul otomatis jika ditautkan ke Anggaran) -->
                     <div x-show="formPengeluaran.Vendor_ID" x-transition.opacity class="bg-brand-50/50 p-4 rounded-xl border border-brand-100">
                         <label class="block text-xs font-bold text-brand-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><i class="fas fa-sync-alt"></i> Update Status Vendor</label>
                         <select x-model="formPengeluaran.status_vendor" class="w-full border border-brand-200 rounded-xl p-3 bg-white outline-none focus:ring-2 focus:ring-brand-500 text-brand-800 font-medium">
@@ -928,6 +901,7 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Kategori Pengeluaran</label>
                         <select x-model="formPengeluaran.kategori" required class="w-full border border-slate-200 rounded-xl p-3 bg-slate-50 outline-none focus:ring-2 focus:ring-brand-500" :disabled="formPengeluaran.Vendor_ID !== ''" :class="{'opacity-60': formPengeluaran.Vendor_ID !== ''}">
+                            <option value="Lainnya">Lainnya</option>
                             <template x-for="cat in budgetCategoriesOnly" :key="cat">
                                 <option :value="cat" x-text="cat"></option>
                             </template>
@@ -978,7 +952,6 @@
                 <div x-show="modal.type === 'vendorDetail'" class="space-y-5" x-cloak>
                     <template x-if="selectedVendor">
                         <div>
-                            <!-- Header Info -->
                             <div class="flex items-center gap-3 mb-6">
                                 <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
                                     <i class="fas fa-store text-xl"></i>
@@ -989,7 +962,6 @@
                                 </div>
                             </div>
 
-                            <!-- Financial Summary Box -->
                             <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 flex flex-col gap-3">
                                 <div class="flex justify-between items-center text-sm">
                                     <span class="text-slate-500 font-medium">Estimasi Rencana</span>
@@ -1006,7 +978,6 @@
                                 </div>
                             </div>
 
-                            <!-- Transaction History dari Tab Pengeluaran -->
                             <h5 class="text-sm font-bold text-slate-800 mb-3 font-serif border-b border-slate-100 pb-2">Riwayat Pengeluaran Item Ini</h5>
                             <div class="space-y-3">
                                 <template x-for="pengeluaran in getVendorPengeluaran(selectedVendor)" :key="pengeluaran.ID">
@@ -1029,9 +1000,7 @@
                                 </template>
 
                                 <div x-show="getVendorPengeluaran(selectedVendor).length === 0" class="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50">
-                                    <p class="text-xs text-slate-400 font-medium">Belum ada transaksi pengeluaran tercatat.</p>
-                                    <!-- Muncul jika ada input manual realisasi tapi tidak ada history pengeluaran -->
-                                    <p x-show="selectedVendor.Realisasi > 0" class="text-xs font-bold text-slate-500 mt-2">Realisasi Manual: <span x-text="formatRupiah(selectedVendor.Realisasi)"></span></p>
+                                    <p class="text-xs text-slate-400 font-medium">Belum ada transaksi pengeluaran tertaut.</p>
                                 </div>
                             </div>
 
@@ -1045,37 +1014,10 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbxl4yGgc_Cc6-5vobw6v4WtUEOXMUwCNWt7-qVDUGLNpx6o1TjJ0K3Zg-foVHhlBgweLw/exec";
 
-        // Fixed Mock Data structure
-        const MOCK_DATA = {
-            Settings: { Pengantin_Pria: 'Dimas', Pengantin_Wanita: 'Sarah', Tanggal_Acara: '2026-12-20', Lokasi: 'Gedung Kartini', Target_Anggaran: 350000000, Target_Tabungan: 350000000 },
-            Tabungan: [
-                { ID: 'T1', Tanggal: '2026-10-01', Penyetor: 'Pria', Nominal: 5000000, Catatan: 'Tabungan Awal' },
-                { ID: 'T2', Tanggal: '2026-10-05', Penyetor: 'Wanita', Nominal: 3000000, Catatan: 'Tabungan Awal' },
-                { ID: 'T3', Tanggal: '2026-10-04', Penyetor: 'Wanita', Nominal: 900000, Catatan: 'sarah' }
-            ],
-            Budget_Vendor: [
-                { ID: 'V1', Kategori: 'Venue', Nama_Vendor: 'Gedung Kartini', Estimasi: 25000000, Realisasi: 0, Tanggal_Realisasi: '', Status: 'DP', Kontak_WA: '' },
-                { ID: 'V2', Kategori: 'Catering', Nama_Vendor: 'Rasa Nusantara', Estimasi: 30000000, Realisasi: 0, Tanggal_Realisasi: '', Status: 'Belum Dibayar', Kontak_WA: '' }
-            ],
-            Checklist: [
-                { ID: 'C1', Tugas: 'Booking Gedung', Catatan: 'H-12 Bulan', Timeline: '2025-12-20', Prioritas: 'Tinggi', Status: 'Selesai' },
-                { ID: 'C2', Tugas: 'Fitting Baju', Catatan: 'H-3 Bulan', Timeline: '2026-09-20', Prioritas: 'Sedang', Status: 'Belum' },
-                { ID: 'C3', Tugas: 'Rapat Keluarga', Catatan: 'H-6 Bulan', Timeline: '2026-06-20', Prioritas: 'Sedang', Status: 'Belum' }
-            ],
-            Pengeluaran: [
-                { ID: 'P1', Tanggal: '2026-10-02', Item: 'Beli Cincin Nikah', Kategori: 'Lainnya', Nominal: 4500000, Vendor_ID: '' },
-                { ID: 'P2', Tanggal: '2026-10-04', Item: 'DP Venue Pertama', Kategori: 'Venue', Nominal: 5000000, Vendor_ID: 'V1' }
-            ],
-            Tamu: [
-                { ID: 'TM1', Nama: 'Bpk. Ahmad & Keluarga', Kategori: 'Keluarga Pria', No_WA: '081234567890', Status: 'Konfirmasi Hadir' },
-                { ID: 'TM2', Nama: 'Sisca Kohl', Kategori: 'Teman Wanita', No_WA: '081298765432', Status: 'Dikirim' },
-                { ID: 'TM3', Nama: 'Reza Rahadian', Kategori: 'Rekan Kerja', No_WA: '', Status: 'Belum Dikirim' }
-            ]
-        };
-
         document.addEventListener('alpine:init', () => {
             Alpine.data('weddingApp', () => ({
-                isLoading: true, 
+                isLoading: true,
+                loadingText: 'Menyinkronkan dengan Google Sheets...',
                 activeTab: 'dashboard',
                 db: { Settings: {}, Tabungan: [], Budget_Vendor: [], Checklist: [], Pengeluaran: [], Tamu: [] },
                 settings: {}, 
@@ -1087,9 +1029,7 @@
                 
                 get budgetCategoriesOnly() {
                     const vendorCats = (this.db.Budget_Vendor || []).map(v => v.Kategori);
-                    const uniqueCats = [...new Set(vendorCats)].filter(Boolean);
-                    if (!uniqueCats.includes('Lainnya')) uniqueCats.push('Lainnya');
-                    return uniqueCats.sort();
+                    return [...new Set(vendorCats)].filter(Boolean).sort();
                 },
 
                 autoFillCategory() {
@@ -1097,10 +1037,10 @@
                         const vendor = this.db.Budget_Vendor.find(v => v.ID === this.formPengeluaran.Vendor_ID);
                         if (vendor) {
                             this.formPengeluaran.kategori = vendor.Kategori;
-                            this.formPengeluaran.status_vendor = vendor.Status || 'Belum Dibayar'; // Sinkronisasi Status Vendor
+                            this.formPengeluaran.status_vendor = vendor.Status || 'Belum Dibayar';
                         }
                     } else {
-                        this.formPengeluaran.status_vendor = ''; // Kosongkan jika tidak ditautkan
+                        this.formPengeluaran.status_vendor = '';
                     }
                 },
                 
@@ -1141,10 +1081,9 @@
                     this.formTamu = { nama: '', kategori: 'Keluarga Pria', no_wa: '', status: 'Belum Dikirim' };
                 },
 
-                // Computed Properties
                 get totalTabungan() { return this.db.Tabungan?.reduce((s, i) => s + (Number(i.Nominal) || 0), 0) || 0; },
-                // Total Pengeluaran is now STRICTLY linked to the Pengeluaran tab, NOT the estimates/realisasi from the Anggaran tab.
                 get totalPengeluaran() { return this.db.Pengeluaran?.reduce((s, i) => s + (Number(i.Nominal) || 0), 0) || 0; },
+                get ketersediaanDana() { return this.totalTabungan - this.totalPengeluaran; },
                 get totalEstimasi() { return Number(this.settings.Target_Anggaran) || this.db.Budget_Vendor?.reduce((s, i) => s + (Number(i.Estimasi) || 0), 0) || 0; },
                 get checklistProgress() {
                     const total = this.db.Checklist?.length || 0;
@@ -1157,16 +1096,8 @@
                     return this.db.Tabungan?.filter(i => i.Penyetor === person).reduce((s, i) => s + (Number(i.Nominal) || 0), 0) || 0;
                 },
 
-                getCategoryTotal(cat, type = 'Realisasi') {
-                    if (!this.db.Budget_Vendor) return 0;
-                    if (cat === 'Semua') return this.db.Budget_Vendor.reduce((s, i) => s + (Number(i[type]) || 0), 0);
-                    return this.db.Budget_Vendor.filter(i => i.Kategori === cat).reduce((s, i) => s + (Number(i[type]) || 0), 0);
-                },
-
                 initData() { 
                     this.fetchData(); 
-                    
-                    // Render ulang grafik setiap kali tab dashboard dibuka
                     this.$watch('activeTab', (val) => {
                         if (val === 'dashboard') {
                             setTimeout(() => this.renderCharts(), 100);
@@ -1179,7 +1110,6 @@
                     const ctxBudget = document.getElementById('chartBudget');
                     if (!ctxExpense || !ctxBudget) return;
 
-                    // --- Chart 1: Pengeluaran by Kategori ---
                     const expData = {};
                     (this.db.Pengeluaran || []).forEach(p => {
                         const cat = p.Kategori || 'Lainnya';
@@ -1220,13 +1150,11 @@
                         }
                     });
 
-                    // --- Chart 2: Anggaran vs Realisasi per Kategori ---
                     const budgetCategories = [...new Set((this.db.Budget_Vendor || []).map(v => v.Kategori))];
                     (this.db.Pengeluaran || []).forEach(p => {
                         if (p.Kategori && !budgetCategories.includes(p.Kategori)) budgetCategories.push(p.Kategori);
                     });
 
-                    // Filter agar rapi
                     const finalCategories = budgetCategories.filter(cat => cat).sort();
 
                     const estValues = finalCategories.map(cat => {
@@ -1282,8 +1210,6 @@
                             plugins: {
                                 legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } },
                                 tooltip: { 
-                                    titleFont: { family: "'Plus Jakarta Sans', sans-serif" },
-                                    bodyFont: { family: "'Plus Jakarta Sans', sans-serif" },
                                     callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${this.formatRupiah(ctx.raw)}` } 
                                 }
                             }
@@ -1293,18 +1219,19 @@
 
                 async fetchData() {
                     this.isLoading = true;
+                    this.loadingText = 'Mengambil data dari Google Sheets...';
                     try {
                         const response = await fetch(`${API_URL}?action=read`);
                         const res = await response.json();
                         if (res.status === 'success') {
                             this.db = res.data; 
-                        } else throw new Error("API fail");
+                        } else {
+                            throw new Error("API response error");
+                        }
                     } catch (e) { 
-                        console.warn('Fallback to Mock Data', e);
-                        // Deep copy mock data so changes don't affect original constant
-                        this.db = JSON.parse(JSON.stringify(MOCK_DATA));
+                        console.warn('Gagal koneksi ke Google Sheets:', e);
+                        this.showToast('Gagal memuat data online, menggunakan mode lokal.', 'info');
                     } finally {
-                        // Ensure all arrays exist even if API doesn't return them
                         this.db.Settings = this.db.Settings || {};
                         this.db.Tabungan = this.db.Tabungan || [];
                         this.db.Budget_Vendor = this.db.Budget_Vendor || [];
@@ -1322,7 +1249,19 @@
                         setTimeout(() => {
                             this.isLoading = false;
                             if (this.activeTab === 'dashboard') this.renderCharts();
-                        }, 600);
+                        }, 500);
+                    }
+                },
+
+                async saveDataToCloud(action, sheetName, dataObject) {
+                    try {
+                        await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: action, sheetName: sheetName, data: dataObject })
+                        });
+                    } catch (e) {
+                        console.error('Cloud sync error:', e);
                     }
                 },
 
@@ -1339,7 +1278,7 @@
                         if (type === 'checklist') this.formChecklist = { tugas: item.Tugas, catatan: item.Catatan || '', timeline: item.Timeline || new Date().toISOString().split('T')[0], prioritas: item.Prioritas };
                         if (type === 'pengeluaran') {
                             this.formPengeluaran = { tanggal: item.Tanggal || new Date().toISOString().split('T')[0], item: item.Item, kategori: item.Kategori, nominal: this.formatInput(item.Nominal), Vendor_ID: item.Vendor_ID || '', status_vendor: '' };
-                            this.autoFillCategory(); // Untuk trigger pengisian status_vendor jika ada
+                            this.autoFillCategory();
                         }
                         if (type === 'tamu') this.formTamu = { nama: item.Nama, kategori: item.Kategori, no_wa: item.No_WA || '', status: item.Status };
                     } else {
@@ -1359,7 +1298,7 @@
                 closeModal() { 
                     this.modal.type = null; 
                     this.editingId = null;
-                    setTimeout(() => { this.selectedVendor = null; }, 300); // Clear after fade out
+                    setTimeout(() => { this.selectedVendor = null; }, 300);
                 },
                 
                 openVendorDetail(vendor) {
@@ -1374,26 +1313,39 @@
                         Target_Tabungan: this.unformatInput(this.formSettings.Target_Tabungan) 
                     };
                     this.db.Settings = this.settings;
-                    this.calcCountdown(); this.closeModal(); this.showToast('Pengaturan disimpan', 'success');
+                    this.calcCountdown();
+                    this.closeModal();
+                    this.showToast('Pengaturan disimpan', 'success');
+                    
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'update_settings', data: this.settings })
+                    });
                 },
 
                 async submitTabungan() { 
                     if (!this.db.Tabungan) this.db.Tabungan = [];
-                    const newItem = { Penyetor: this.formTabungan.penyetor, Nominal: this.unformatInput(this.formTabungan.nominal), Catatan: this.formTabungan.catatan, Tanggal: this.formTabungan.tanggal };
+                    const id = this.editingId || ('T-' + Date.now());
+                    const newItem = { ID: id, Tanggal: this.formTabungan.tanggal, Penyetor: this.formTabungan.penyetor, Nominal: this.unformatInput(this.formTabungan.nominal), Catatan: this.formTabungan.catatan };
+                    
                     if (this.editingId) {
                         const idx = this.db.Tabungan.findIndex(i => i.ID === this.editingId);
-                        if(idx > -1) this.db.Tabungan[idx] = { ...this.db.Tabungan[idx], ...newItem };
+                        if(idx > -1) this.db.Tabungan[idx] = newItem;
                         this.showToast('Tabungan diperbarui', 'success');
                     } else {
-                        this.db.Tabungan.push({ ID: 'T-'+Date.now(), ...newItem });
+                        this.db.Tabungan.push(newItem);
                         this.showToast('Dana ditambahkan', 'success');
                     }
                     this.closeModal();
+                    await this.saveDataToCloud(this.editingId ? 'update' : 'insert', 'Tabungan', newItem);
                 },
 
                 async submitVendor() { 
                     if (!this.db.Budget_Vendor) this.db.Budget_Vendor = [];
+                    const id = this.editingId || ('V-' + Date.now());
                     const newItem = { 
+                        ID: id,
                         Kategori: this.formVendor.kategori, 
                         Nama_Vendor: this.formVendor.nama, 
                         Estimasi: this.unformatInput(this.formVendor.estimasi) || 0, 
@@ -1403,68 +1355,79 @@
                     };
                     if (this.editingId) {
                         const idx = this.db.Budget_Vendor.findIndex(i => i.ID === this.editingId);
-                        if(idx > -1) this.db.Budget_Vendor[idx] = { ...this.db.Budget_Vendor[idx], ...newItem };
+                        if(idx > -1) this.db.Budget_Vendor[idx] = newItem;
                         this.showToast('Vendor & Biaya diperbarui', 'success');
                     } else {
-                        this.db.Budget_Vendor.push({ ID: 'V-'+Date.now(), ...newItem });
+                        this.db.Budget_Vendor.push(newItem);
                         this.showToast('Vendor & Biaya ditambahkan', 'success');
                     }
                     this.closeModal();
                     if (this.activeTab === 'dashboard') setTimeout(() => this.renderCharts(), 100);
+                    await this.saveDataToCloud(this.editingId ? 'update' : 'insert', 'Budget_Vendor', newItem);
                 },
 
                 async submitChecklist() { 
                     if (!this.db.Checklist) this.db.Checklist = [];
+                    const id = this.editingId || ('C-' + Date.now());
                     const newItem = { 
+                        ID: id,
                         Tugas: this.formChecklist.tugas, 
                         Catatan: this.formChecklist.catatan, 
                         Timeline: this.formChecklist.timeline, 
-                        Prioritas: this.formChecklist.prioritas 
+                        Prioritas: this.formChecklist.prioritas,
+                        Status: this.editingId ? (this.db.Checklist.find(i => i.ID === this.editingId)?.Status || 'Belum') : 'Belum'
                     };
                     if (this.editingId) {
                         const idx = this.db.Checklist.findIndex(i => i.ID === this.editingId);
-                        if(idx > -1) {
-                            // Preserve completion status when editing
-                            newItem.Status = this.db.Checklist[idx].Status; 
-                            this.db.Checklist[idx] = { ...this.db.Checklist[idx], ...newItem };
-                        }
+                        if(idx > -1) this.db.Checklist[idx] = newItem;
                         this.showToast('Tugas diperbarui', 'success');
                     } else {
-                        newItem.Status = 'Belum'; // Default status for new task
-                        this.db.Checklist.push({ ID: 'C-'+Date.now(), ...newItem });
+                        this.db.Checklist.push(newItem);
                         this.showToast('Tugas ditambahkan', 'success');
                     }
                     this.closeModal();
+                    await this.saveDataToCloud(this.editingId ? 'update' : 'insert', 'Checklist', newItem);
                 },
 
                 async submitPengeluaran() { 
                     if (!this.db.Pengeluaran) this.db.Pengeluaran = [];
-                    const newItem = { Tanggal: this.formPengeluaran.tanggal, Item: this.formPengeluaran.item, Kategori: this.formPengeluaran.kategori, Nominal: this.unformatInput(this.formPengeluaran.nominal), Vendor_ID: this.formPengeluaran.Vendor_ID };
+                    const id = this.editingId || ('P-' + Date.now());
+                    const newItem = { 
+                        ID: id, 
+                        Tanggal: this.formPengeluaran.tanggal, 
+                        Item: this.formPengeluaran.item, 
+                        Kategori: this.formPengeluaran.kategori, 
+                        Nominal: this.unformatInput(this.formPengeluaran.nominal), 
+                        Vendor_ID: this.formPengeluaran.Vendor_ID 
+                    };
                     
                     if (this.editingId) {
                         const idx = this.db.Pengeluaran.findIndex(i => i.ID === this.editingId);
-                        if(idx > -1) this.db.Pengeluaran[idx] = { ...this.db.Pengeluaran[idx], ...newItem };
+                        if(idx > -1) this.db.Pengeluaran[idx] = newItem;
                         this.showToast('Pengeluaran diperbarui', 'success');
                     } else {
-                        this.db.Pengeluaran.push({ ID: 'P-'+Date.now(), ...newItem });
-                        this.showToast('Pengeluaran ditambahkan', 'success');
+                        this.db.Pengeluaran.push(newItem);
+                        this.showToast('Pengeluaran dicatat', 'success');
                     }
 
-                    // UPDATE STATUS VENDOR SECARA OTOMATIS
                     if (this.formPengeluaran.Vendor_ID && this.formPengeluaran.status_vendor) {
                         const vendorIdx = this.db.Budget_Vendor.findIndex(v => v.ID === this.formPengeluaran.Vendor_ID);
                         if (vendorIdx > -1) {
                             this.db.Budget_Vendor[vendorIdx].Status = this.formPengeluaran.status_vendor;
+                            await this.saveDataToCloud('update', 'Budget_Vendor', this.db.Budget_Vendor[vendorIdx]);
                         }
                     }
 
                     this.closeModal();
                     if (this.activeTab === 'dashboard') setTimeout(() => this.renderCharts(), 100);
+                    await this.saveDataToCloud(this.editingId ? 'update' : 'insert', 'Pengeluaran', newItem);
                 },
 
                 async submitTamu() {
                     if (!this.db.Tamu) this.db.Tamu = [];
+                    const id = this.editingId || ('TM-' + Date.now());
                     const newItem = {
+                        ID: id,
                         Nama: this.formTamu.nama,
                         Kategori: this.formTamu.kategori,
                         No_WA: this.formTamu.no_wa,
@@ -1472,43 +1435,48 @@
                     };
                     if (this.editingId) {
                         const idx = this.db.Tamu.findIndex(i => i.ID === this.editingId);
-                        if (idx > -1) this.db.Tamu[idx] = { ...this.db.Tamu[idx], ...newItem };
+                        if (idx > -1) this.db.Tamu[idx] = newItem;
                         this.showToast('Data tamu diperbarui', 'success');
                     } else {
-                        this.db.Tamu.push({ ID: 'TM-'+Date.now(), ...newItem });
+                        this.db.Tamu.push(newItem);
                         this.showToast('Tamu ditambahkan', 'success');
                     }
                     this.closeModal();
+                    await this.saveDataToCloud(this.editingId ? 'update' : 'insert', 'Tamu', newItem);
                 },
 
-                deleteItem(collection, id) {
+                async deleteItem(collection, id) {
+                    if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return;
                     this.db[collection] = this.db[collection].filter(i => i.ID !== id);
                     this.showToast('Data berhasil dihapus', 'info');
                     if (this.activeTab === 'dashboard') setTimeout(() => this.renderCharts(), 100);
+                    
+                    try {
+                        await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'delete', sheetName: collection, id: id })
+                        });
+                    } catch (e) {
+                        console.error('Delete cloud error:', e);
+                    }
                 },
 
                 getVendorPengeluaran(vendor) {
                     if (!vendor || !this.db.Pengeluaran) return [];
-                    return this.db.Pengeluaran.filter(p => {
-                        // HANYA hitung pengeluaran jika secara eksplisit ditautkan ke Vendor_ID ini.
-                        // Pencocokan otomatis berdasarkan Kategori DIHAPUS agar pengeluaran umum 
-                        // (seperti kopi tambahan) tidak bocor ke vendor utama.
-                        return p.Vendor_ID === vendor.ID; 
-                    }).sort((a,b) => new Date(b.Tanggal) - new Date(a.Tanggal));
+                    return this.db.Pengeluaran.filter(p => p.Vendor_ID === vendor.ID).sort((a,b) => new Date(b.Tanggal) - new Date(a.Tanggal));
                 },
 
                 getVendorRealisasi(vendor) {
                     const list = this.getVendorPengeluaran(vendor);
                     const sum = list.reduce((s, p) => s + (Number(p.Nominal) || 0), 0);
-                    // Gunakan total pengeluaran tertaut jika ada, jika tidak kembali ke input manual awal
                     return sum > 0 ? sum : (Number(vendor.Realisasi) || 0);
                 },
                 
-                toggleChecklist(item) {
+                async toggleChecklist(item) {
                     item.Status = item.Status === 'Selesai' ? 'Belum' : 'Selesai';
+                    await this.saveDataToCloud('update', 'Checklist', item);
                 },
-                
-                mockAction(act) { this.showToast(`Fitur ${act} belum tersambung DB.`, 'info'); },
 
                 calcCountdown() {
                     if (!this.settings.Tanggal_Acara) { this.countdownDays = 0; return; }

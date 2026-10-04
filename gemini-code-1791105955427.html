@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>thewedding.co - Wedding Planner & Budgeting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+        .bg-rose-gradient { background: linear-gradient(135deg, #fda4af 0%, #f43f5e 100%); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased" x-data="weddingApp()" x-init="initData()">
+
+    <!-- Loading Overlay -->
+    <div x-show="isLoading" class="fixed inset-0 bg-white/90 z-50 flex flex-col items-center justify-center" x-cloak>
+        <i class="fas fa-circle-notch fa-spin text-4xl text-rose-500 mb-4"></i>
+        <p class="text-gray-600 font-medium animate-pulse" x-text="loadingMessage">Menyinkronkan Data...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" x-transition.opacity class="fixed top-4 right-4 z-50 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3" x-cloak>
+        <i :class="toast.isError ? 'fas fa-exclamation-circle text-red-400' : 'fas fa-check-circle text-green-400'"></i>
+        <span x-text="toast.message"></span>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-rose-gradient text-white shadow-md rounded-b-3xl">
+        <div class="max-w-4xl mx-auto px-4 py-6 text-center">
+            <p class="text-xs font-semibold tracking-widest uppercase mb-2 opacity-80">thewedding.co</p>
+            <h1 class="text-3xl font-bold font-serif mb-2" x-text="`${settings.Pengantin_Pria || 'Pria'} & ${settings.Pengantin_Wanita || 'Wanita'}`"></h1>
+            <p class="text-sm opacity-90"><i class="far fa-calendar-alt mr-2"></i><span x-text="formatDate(settings.Tanggal_Acara)"></span></p>
+        </div>
+        
+        <!-- Navigation -->
+        <nav class="max-w-4xl mx-auto px-2 flex overflow-x-auto pb-2 scrollbar-hide">
+            <template x-for="tab in tabs" :key="tab.id">
+                <button @click="activeTab = tab.id" 
+                    class="flex-shrink-0 px-4 py-2 mx-1 rounded-full text-sm font-medium transition-colors"
+                    :class="activeTab === tab.id ? 'bg-white text-rose-600 shadow' : 'text-white/80 hover:bg-white/20'">
+                    <i :class="tab.icon + ' mr-2'"></i><span x-text="tab.name"></span>
+                </button>
+            </template>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 py-6 mb-20">
+
+        <!-- DASHBOARD TAB -->
+        <div x-show="activeTab === 'dashboard'" x-cloak>
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p class="text-xs text-gray-500 mb-1">Total Tabungan</p>
+                    <p class="text-lg font-bold text-green-600" x-text="formatRupiah(totalTabungan)"></p>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p class="text-xs text-gray-500 mb-1">Total Pengeluaran</p>
+                    <p class="text-lg font-bold text-red-500" x-text="formatRupiah(totalPengeluaran)"></p>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+                <h3 class="font-semibold text-gray-700 mb-4">Grafik Keuangan</h3>
+                <canvas id="budgetChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- TABUNGAN TAB -->
+        <div x-show="activeTab === 'tabungan'" x-cloak>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Riwayat Tabungan</h2>
+                <button @click="testAddData('Tabungan', ['T-' + Date.now(), new Date().toISOString().split('T')[0], 'Pria', 1000000, 'Test Tabungan'])" class="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-plus mr-1"></i> Tambah</button>
+            </div>
+            <div class="space-y-3">
+                <template x-for="item in db.Tabungan" :key="item.ID">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold text-gray-800" x-text="item.Catatan"></p>
+                            <p class="text-xs text-gray-500" x-text="`${item.Tanggal} • ${item.Penyetor}`"></p>
+                        </div>
+                        <p class="font-bold text-green-600" x-text="formatRupiah(item.Nominal)"></p>
+                    </div>
+                </template>
+                <p x-show="!db.Tabungan || db.Tabungan.length === 0" class="text-center text-gray-500 py-4">Belum ada data tabungan.</p>
+            </div>
+        </div>
+
+        <!-- BUDGET & VENDOR TAB -->
+        <div x-show="activeTab === 'budget'" x-cloak>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Manajemen Vendor & Budget</h2>
+            <div class="space-y-3">
+                <template x-for="item in db.Budget_Vendor" :key="item.ID">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <span class="text-xs font-bold text-rose-500 uppercase tracking-wider" x-text="item.Kategori"></span>
+                                <h3 class="font-semibold text-gray-800" x-text="item.Nama_Vendor"></h3>
+                            </div>
+                            <span class="px-2 py-1 text-xs rounded-full font-medium" 
+                                :class="item.Status === 'Lunas' ? 'bg-green-100 text-green-700' : (item.Status === 'DP' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')"
+                                x-text="item.Status"></span>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-600 mt-2 pt-2 border-t border-gray-50">
+                            <span>Estimasi: <b x-text="formatRupiah(item.Estimasi)"></b></span>
+                            <span>Realisasi: <b x-text="formatRupiah(item.Realisasi)"></b></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- CHECKLIST TAB -->
+        <div x-show="activeTab === 'checklist'" x-cloak>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Checklist Persiapan</h2>
+            <div class="space-y-2">
+                <template x-for="item in db.Checklist" :key="item.ID">
+                    <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center gap-3">
+                        <input type="checkbox" :checked="item.Status === 'Selesai'" class="w-5 h-5 text-rose-500 rounded border-gray-300 focus:ring-rose-500">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-800" :class="item.Status === 'Selesai' ? 'line-through text-gray-400' : ''" x-text="item.Tugas"></p>
+                            <p class="text-xs text-gray-500" x-text="item.Timeline"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+        
+    </main>
+
+    <script>
+        // LINK API GOOGLE APPS SCRIPT ANDA
+        const API_URL = "https://script.google.com/macros/s/AKfycbymJBdUUBRZBiq5dTw_q_ef6OyCT-nd5S1gB7w_C3UW7_7s0o30GynaQHMVUrsiBoDu/exec";
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('weddingApp', () => ({
+                isLoading: true,
+                loadingMessage: 'Menyinkronkan Data...',
+                activeTab: 'dashboard',
+                db: { Settings: {}, Tabungan: [], Budget_Vendor: [], Checklist: [], Tamu: [] },
+                settings: {},
+                chartInstance: null,
+                toast: { show: false, message: '', isError: false },
+                
+                tabs: [
+                    { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-chart-pie' },
+                    { id: 'tabungan', name: 'Tabungan', icon: 'fas fa-piggy-bank' },
+                    { id: 'budget', name: 'Vendor', icon: 'fas fa-file-invoice-dollar' },
+                    { id: 'checklist', name: 'Checklist', icon: 'fas fa-tasks' }
+                ],
+
+                get totalTabungan() {
+                    if(!this.db.Tabungan) return 0;
+                    return this.db.Tabungan.reduce((sum, item) => sum + (Number(item.Nominal) || 0), 0);
+                },
+
+                get totalPengeluaran() {
+                    if(!this.db.Budget_Vendor) return 0;
+                    return this.db.Budget_Vendor.reduce((sum, item) => sum + (Number(item.Realisasi) || 0), 0);
+                },
+
+                initData() {
+                    this.fetchData();
+                },
+
+                async fetchData() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch(`${API_URL}?action=read`);
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            this.db = result.data;
+                            this.settings = this.db.Settings || {};
+                            this.updateChart();
+                        } else {
+                            this.showToast('Gagal memuat data dari database', true);
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        this.showToast('Terjadi kesalahan koneksi', true);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                async testAddData(sheetName, rowData) {
+                    this.isLoading = true;
+                    this.loadingMessage = 'Menyimpan data...';
+                    
+                    const payload = {
+                        action: 'insert',
+                        sheetName: sheetName,
+                        data: rowData
+                    };
+
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+                        
+                        if(result.status === 'success') {
+                            this.showToast('Data berhasil disimpan!');
+                            this.fetchData(); 
+                        } else {
+                            this.showToast('Gagal menyimpan data', true);
+                            this.isLoading = false;
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        this.showToast('Terjadi kesalahan koneksi', true);
+                        this.isLoading = false;
+                    }
+                },
+
+                updateChart() {
+                    const ctx = document.getElementById('budgetChart');
+                    if (!ctx) return;
+                    
+                    if (this.chartInstance) {
+                        this.chartInstance.destroy();
+                    }
+
+                    this.chartInstance = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Total Tabungan', 'Total Pengeluaran'],
+                            datasets: [{
+                                data: [this.totalTabungan, this.totalPengeluaran],
+                                backgroundColor: ['#10b981', '#f43f5e'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            cutout: '70%',
+                            plugins: {
+                                legend: { position: 'bottom' }
+                            }
+                        }
+                    });
+                },
+
+                showToast(msg, isError = false) {
+                    this.toast.message = msg;
+                    this.toast.isError = isError;
+                    this.toast.show = true;
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                },
+
+                formatRupiah(number) {
+                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number || 0);
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                }
+            }));
+        });
+    </script>
+</body>
+</html>

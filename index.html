@@ -4,162 +4,446 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>thewedding.co - Wedding Planner & Budgeting</title>
+    <!-- Tailwind CSS & Font Awesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+
     <style>
         [x-cloak] { display: none !important; }
-        .bg-rose-gradient { background: linear-gradient(135deg, #fda4af 0%, #f43f5e 100%); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-serif { font-family: 'Playfair Display', serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .bg-primary-gradient { background: linear-gradient(135deg, #e11d48 0%, #be123c 50%, #9f1239 100%); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans antialiased" x-data="weddingApp()" x-init="initData()">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen pb-24 md:pb-12" x-data="weddingApp()" x-init="initData()">
 
-    <!-- Loading Overlay -->
-    <div x-show="isLoading" class="fixed inset-0 bg-white/90 z-50 flex flex-col items-center justify-center" x-cloak>
-        <i class="fas fa-circle-notch fa-spin text-4xl text-rose-500 mb-4"></i>
-        <p class="text-gray-600 font-medium animate-pulse" x-text="loadingMessage">Menyinkronkan Data...</p>
+    <!-- Loading Indicator -->
+    <div x-show="isLoading" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center" x-cloak>
+        <div class="w-14 h-14 border-4 border-rose-200 border-t-rose-600 rounded-full animate-spin mb-3"></div>
+        <p class="text-sm font-semibold text-slate-600 tracking-wide" x-text="loadingMessage">Menyinkronkan Database...</p>
     </div>
 
-    <!-- Toast Notification -->
-    <div x-show="toast.show" x-transition.opacity class="fixed top-4 right-4 z-50 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3" x-cloak>
-        <i :class="toast.isError ? 'fas fa-exclamation-circle text-red-400' : 'fas fa-check-circle text-green-400'"></i>
+    <!-- Notification Toast -->
+    <div x-show="toast.show" x-transition class="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border text-sm font-medium"
+         :class="toast.isError ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'" x-cloak>
+        <i :class="toast.isError ? 'fas fa-circle-exclamation text-red-500' : 'fas fa-circle-check text-emerald-500'"></i>
         <span x-text="toast.message"></span>
     </div>
 
-    <!-- Header -->
-    <header class="bg-rose-gradient text-white shadow-md rounded-b-3xl">
-        <div class="max-w-4xl mx-auto px-4 py-6 text-center">
-            <p class="text-xs font-semibold tracking-widest uppercase mb-2 opacity-80">thewedding.co</p>
-            <h1 class="text-3xl font-bold font-serif mb-2" x-text="`${settings.Pengantin_Pria || 'Pria'} & ${settings.Pengantin_Wanita || 'Wanita'}`"></h1>
-            <p class="text-sm opacity-90"><i class="far fa-calendar-alt mr-2"></i><span x-text="formatDate(settings.Tanggal_Acara)"></span></p>
-        </div>
+    <!-- App Wrapper (Mobile-Centered Container) -->
+    <div class="max-w-md md:max-w-2xl mx-auto min-h-screen bg-slate-50 shadow-2xl flex flex-col border-x border-slate-200">
         
-        <!-- Navigation -->
-        <nav class="max-w-4xl mx-auto px-2 flex overflow-x-auto pb-2 scrollbar-hide">
-            <template x-for="tab in tabs" :key="tab.id">
-                <button @click="activeTab = tab.id" 
-                    class="flex-shrink-0 px-4 py-2 mx-1 rounded-full text-sm font-medium transition-colors"
-                    :class="activeTab === tab.id ? 'bg-white text-rose-600 shadow' : 'text-white/80 hover:bg-white/20'">
-                    <i :class="tab.icon + ' mr-2'"></i><span x-text="tab.name"></span>
-                </button>
-            </template>
-        </nav>
-    </header>
-
-    <!-- Main Content -->
-    <main class="max-w-4xl mx-auto px-4 py-6 mb-20">
-
-        <!-- DASHBOARD TAB -->
-        <div x-show="activeTab === 'dashboard'" x-cloak>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <p class="text-xs text-gray-500 mb-1">Total Tabungan</p>
-                    <p class="text-lg font-bold text-green-600" x-text="formatRupiah(totalTabungan)"></p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <p class="text-xs text-gray-500 mb-1">Total Pengeluaran</p>
-                    <p class="text-lg font-bold text-red-500" x-text="formatRupiah(totalPengeluaran)"></p>
-                </div>
-            </div>
+        <!-- Luxury Top Header -->
+        <header class="bg-primary-gradient text-white px-6 pt-8 pb-14 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
+            <div class="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -left-10 w-36 h-36 bg-white/10 rounded-full blur-xl"></div>
             
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
-                <h3 class="font-semibold text-gray-700 mb-4">Grafik Keuangan</h3>
-                <canvas id="budgetChart" height="200"></canvas>
+            <div class="relative z-10 text-center">
+                <span class="inline-block px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-[11px] font-semibold tracking-widest uppercase text-rose-100 mb-2">
+                    thewedding.co
+                </span>
+                <h1 class="text-3xl font-serif font-bold tracking-tight mb-2 drop-shadow-sm" 
+                    x-text="`${settings.Pengantin_Pria || 'Dimas'} & ${settings.Pengantin_Wanita || 'Sarah'}`"></h1>
+                <div class="flex items-center justify-center gap-2 text-xs text-rose-100 font-medium">
+                    <i class="far fa-calendar-heart text-rose-200"></i>
+                    <span x-text="formatDate(settings.Tanggal_Acara)"></span>
+                    <span>•</span>
+                    <span class="bg-white/20 px-2 py-0.5 rounded-full" x-text="countdownText"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Floating Quick Navigation Bar -->
+        <div class="px-4 -mt-7 z-20">
+            <div class="glass-card rounded-2xl p-1.5 shadow-md border border-white/70 flex items-center justify-between text-xs font-semibold">
+                <button @click="activeTab = 'dashboard'" 
+                    class="flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1 transition-all"
+                    :class="activeTab === 'dashboard' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'">
+                    <i class="fas fa-chart-pie text-sm"></i>
+                    <span>Ringkasan</span>
+                </button>
+                <button @click="activeTab = 'tabungan'" 
+                    class="flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1 transition-all"
+                    :class="activeTab === 'tabungan' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'">
+                    <i class="fas fa-wallet text-sm"></i>
+                    <span>Tabungan</span>
+                </button>
+                <button @click="activeTab = 'vendor'" 
+                    class="flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1 transition-all"
+                    :class="activeTab === 'vendor' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'">
+                    <i class="fas fa-store text-sm"></i>
+                    <span>Vendor</span>
+                </button>
+                <button @click="activeTab = 'checklist'" 
+                    class="flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1 transition-all"
+                    :class="activeTab === 'checklist' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'">
+                    <i class="fas fa-list-check text-sm"></i>
+                    <span>Checklist</span>
+                </button>
             </div>
         </div>
 
-        <!-- TABUNGAN TAB -->
-        <div x-show="activeTab === 'tabungan'" x-cloak>
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">Riwayat Tabungan</h2>
-                <button @click="testAddData('Tabungan', ['T-' + Date.now(), new Date().toISOString().split('T')[0], 'Pria', 1000000, 'Test Tabungan'])" class="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-plus mr-1"></i> Tambah</button>
-            </div>
-            <div class="space-y-3">
-                <template x-for="item in db.Tabungan" :key="item.ID">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                        <div>
-                            <p class="font-semibold text-gray-800" x-text="item.Catatan"></p>
-                            <p class="text-xs text-gray-500" x-text="`${item.Tanggal} • ${item.Penyetor}`"></p>
-                        </div>
-                        <p class="font-bold text-green-600" x-text="formatRupiah(item.Nominal)"></p>
-                    </div>
-                </template>
-                <p x-show="!db.Tabungan || db.Tabungan.length === 0" class="text-center text-gray-500 py-4">Belum ada data tabungan.</p>
-            </div>
-        </div>
+        <!-- Main Tab Content -->
+        <main class="flex-1 px-5 pt-6 pb-12">
 
-        <!-- BUDGET & VENDOR TAB -->
-        <div x-show="activeTab === 'budget'" x-cloak>
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Manajemen Vendor & Budget</h2>
-            <div class="space-y-3">
-                <template x-for="item in db.Budget_Vendor" :key="item.ID">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <span class="text-xs font-bold text-rose-500 uppercase tracking-wider" x-text="item.Kategori"></span>
-                                <h3 class="font-semibold text-gray-800" x-text="item.Nama_Vendor"></h3>
+            <!-- TAB 1: DASHBOARD -->
+            <div x-show="activeTab === 'dashboard'" x-cloak class="space-y-5">
+                <!-- Metrics -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold text-slate-500">Terkumpul</span>
+                            <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">
+                                <i class="fas fa-piggy-bank"></i>
                             </div>
-                            <span class="px-2 py-1 text-xs rounded-full font-medium" 
-                                :class="item.Status === 'Lunas' ? 'bg-green-100 text-green-700' : (item.Status === 'DP' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')"
-                                x-text="item.Status"></span>
                         </div>
-                        <div class="flex justify-between text-sm text-gray-600 mt-2 pt-2 border-t border-gray-50">
-                            <span>Estimasi: <b x-text="formatRupiah(item.Estimasi)"></b></span>
-                            <span>Realisasi: <b x-text="formatRupiah(item.Realisasi)"></b></span>
+                        <p class="text-lg font-bold text-emerald-600" x-text="formatRupiah(totalTabungan)"></p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Dari kedua mempelai</p>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold text-slate-500">Total Keluar (DP/Lunas)</span>
+                            <div class="w-7 h-7 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs">
+                                <i class="fas fa-receipt"></i>
+                            </div>
+                        </div>
+                        <p class="text-lg font-bold text-rose-600" x-text="formatRupiah(totalPengeluaran)"></p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Realisasi vendor</p>
+                    </div>
+                </div>
+
+                <!-- Budget Target & Progress -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Target Anggaran Estimasi</h3>
+                        <span class="text-xs font-bold text-slate-700" x-text="formatRupiah(totalEstimasi)"></span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
+                        <div class="bg-rose-500 h-full transition-all duration-500" :style="`width: ${Math.min(100, (totalPengeluaran/totalEstimasi)*100 || 0)}%`"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+                        <span>Realisasi: <b class="text-slate-600" x-text="`${Math.round((totalPengeluaran/totalEstimasi)*100 || 0)}%`"></b></span>
+                        <span>Sisa Dana: <b class="text-emerald-600" x-text="formatRupiah(totalTabungan - totalPengeluaran)"></b></span>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                    <h3 class="text-sm font-bold text-slate-700 mb-3">Distribusi Keuangan</h3>
+                    <div class="relative flex justify-center">
+                        <div class="w-48 h-48">
+                            <canvas id="budgetChart"></canvas>
                         </div>
                     </div>
-                </template>
+                </div>
+            </div>
+
+            <!-- TAB 2: TABUNGAN BERSAMA -->
+            <div x-show="activeTab === 'tabungan'" x-cloak class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Nabung Bersama</h2>
+                        <p class="text-xs text-slate-500">Mutasi tabungan pernikahan</p>
+                    </div>
+                    <!-- Action Button: Open Add Modal -->
+                    <button @click="openModal('tabungan')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all">
+                        <i class="fas fa-plus"></i>
+                        <span>Tambah Setoran</span>
+                    </button>
+                </div>
+
+                <div class="space-y-2.5">
+                    <template x-for="item in db.Tabungan" :key="item.ID">
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-inner"
+                                     :class="item.Penyetor === 'Pria' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'">
+                                    <i :class="item.Penyetor === 'Pria' ? 'fas fa-mars' : 'fas fa-venus'"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-800" x-text="item.Catatan"></h4>
+                                    <p class="text-[11px] text-slate-400" x-text="`${formatDate(item.Tanggal)} • ${item.Penyetor}`"></p>
+                                </div>
+                            </div>
+                            <span class="text-sm font-bold text-emerald-600" x-text="formatRupiah(item.Nominal)"></span>
+                        </div>
+                    </template>
+                    <div x-show="!db.Tabungan || db.Tabungan.length === 0" class="text-center py-10 text-slate-400 text-xs">
+                        Belum ada riwayat setoran tabungan.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: MANAJEMEN VENDOR & BIAYA -->
+            <div x-show="activeTab === 'vendor'" x-cloak class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Daftar Vendor</h2>
+                        <p class="text-xs text-slate-500">Anggaran pos pengeluaran & kontak</p>
+                    </div>
+                    <!-- Action Button: Open Add Modal -->
+                    <button @click="openModal('vendor')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all">
+                        <i class="fas fa-plus"></i>
+                        <span>Tambah Vendor</span>
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <template x-for="item in db.Budget_Vendor" :key="item.ID">
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <span class="text-[10px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-2 py-0.5 rounded-md" x-text="item.Kategori"></span>
+                                    <h3 class="text-sm font-bold text-slate-800 mt-1" x-text="item.Nama_Vendor"></h3>
+                                </div>
+                                <span class="px-2.5 py-0.5 text-[11px] rounded-full font-semibold"
+                                      :class="{
+                                          'bg-emerald-100 text-emerald-700': item.Status === 'Lunas',
+                                          'bg-amber-100 text-amber-700': item.Status === 'DP',
+                                          'bg-slate-100 text-slate-600': item.Status !== 'Lunas' && item.Status !== 'DP'
+                                      }" x-text="item.Status"></span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 mt-3">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px]">Estimasi Biaya</span>
+                                    <span class="font-bold text-slate-700" x-text="formatRupiah(item.Estimasi)"></span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px]">Telah Dibayar</span>
+                                    <span class="font-bold text-rose-600" x-text="formatRupiah(item.Realisasi)"></span>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end items-center gap-2 mt-3 pt-2 border-t border-slate-100" x-show="item.Kontak_WA">
+                                <a :href="`https://wa.me/${String(item.Kontak_WA).replace(/[^0-9]/g, '')}`" target="_blank" 
+                                   class="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                                    <i class="fab fa-whatsapp text-sm"></i>
+                                    <span>Chat WhatsApp</span>
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="!db.Budget_Vendor || db.Budget_Vendor.length === 0" class="text-center py-10 text-slate-400 text-xs">
+                        Belum ada vendor terdaftar.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: CHECKLIST PERSIAPAN -->
+            <div x-show="activeTab === 'checklist'" x-cloak class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Checklist Pernikahan</h2>
+                        <p class="text-xs text-slate-500">Tahapan persiapan menuju Hari-H</p>
+                    </div>
+                    <!-- Action Button: Open Add Modal -->
+                    <button @click="openModal('checklist')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all">
+                        <i class="fas fa-plus"></i>
+                        <span>Tambah Agenda</span>
+                    </button>
+                </div>
+
+                <div class="space-y-2.5">
+                    <template x-for="item in db.Checklist" :key="item.ID">
+                        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center gap-3">
+                            <input type="checkbox" :checked="item.Status === 'Selesai'" 
+                                   @change="toggleChecklist(item)"
+                                   class="w-5 h-5 text-rose-600 rounded-lg border-slate-300 focus:ring-rose-500 cursor-pointer">
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-sm font-semibold truncate" 
+                                    :class="item.Status === 'Selesai' ? 'line-through text-slate-400' : 'text-slate-800'"
+                                    x-text="item.Tugas"></h4>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-[10px] text-slate-400" x-text="item.Timeline"></span>
+                                    <span class="text-[9px] px-2 py-0.2 rounded-full font-bold"
+                                          :class="{
+                                              'bg-red-50 text-red-600': item.Prioritas === 'Tinggi',
+                                              'bg-amber-50 text-amber-600': item.Prioritas === 'Sedang',
+                                              'bg-slate-100 text-slate-600': item.Prioritas === 'Rendah'
+                                          }" x-text="item.Prioritas"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="!db.Checklist || db.Checklist.length === 0" class="text-center py-10 text-slate-400 text-xs">
+                        Belum ada checklist persiapan.
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ================= MODAL FORMS ================= -->
+
+        <!-- MODAL: TAMBAH TABUNGAN -->
+        <div x-show="modal.type === 'tabungan'" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+            <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4" @click.outside="closeModal()">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-base font-bold text-slate-800">Tambah Setoran Tabungan</h3>
+                    <button @click="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </div>
+                <form @submit.prevent="submitTabungan()" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Penyetor</label>
+                        <select x-model="formTabungan.penyetor" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <option value="Pria">Pria</option>
+                            <option value="Wanita">Wanita</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Nominal (Rp)</label>
+                        <input type="number" x-model="formTabungan.nominal" required placeholder="Contoh: 2500000" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Keterangan / Catatan</label>
+                        <input type="text" x-model="formTabungan.catatan" required placeholder="Contoh: Tabungan Bulanan Oktober" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Tanggal</label>
+                        <input type="date" x-model="formTabungan.tanggal" required class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-rose-600 text-white font-bold py-3 rounded-xl mt-2 hover:bg-rose-700 shadow-md shadow-rose-600/20">
+                        Simpan ke Database
+                    </button>
+                </form>
             </div>
         </div>
 
-        <!-- CHECKLIST TAB -->
-        <div x-show="activeTab === 'checklist'" x-cloak>
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Checklist Persiapan</h2>
-            <div class="space-y-2">
-                <template x-for="item in db.Checklist" :key="item.ID">
-                    <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center gap-3">
-                        <input type="checkbox" :checked="item.Status === 'Selesai'" class="w-5 h-5 text-rose-500 rounded border-gray-300 focus:ring-rose-500">
-                        <div class="flex-1">
-                            <p class="font-medium text-gray-800" :class="item.Status === 'Selesai' ? 'line-through text-gray-400' : ''" x-text="item.Tugas"></p>
-                            <p class="text-xs text-gray-500" x-text="item.Timeline"></p>
+        <!-- MODAL: TAMBAH VENDOR -->
+        <div x-show="modal.type === 'vendor'" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+            <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto" @click.outside="closeModal()">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-base font-bold text-slate-800">Tambah Vendor / Anggaran</h3>
+                    <button @click="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </div>
+                <form @submit.prevent="submitVendor()" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Kategori</label>
+                        <select x-model="formVendor.kategori" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <option value="Venue">Venue & Lokasi</option>
+                            <option value="Catering">Catering</option>
+                            <option value="Dekorasi">Dekorasi</option>
+                            <option value="MUA & Busana">MUA & Busana</option>
+                            <option value="Dokumentasi">Dokumentasi</option>
+                            <option value="Undangan & Souvenir">Undangan & Souvenir</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Nama Vendor / Item</label>
+                        <input type="text" x-model="formVendor.nama" required placeholder="Contoh: Diamond Ballroom" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1">Estimasi (Rp)</label>
+                            <input type="number" x-model="formVendor.estimasi" required placeholder="0" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1">Realisasi (Rp)</label>
+                            <input type="number" x-model="formVendor.realisasi" required placeholder="0" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
                         </div>
                     </div>
-                </template>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Status Pembayaran</label>
+                        <select x-model="formVendor.status" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <option value="Belum Dibayar">Belum Dibayar</option>
+                            <option value="DP">DP (Uang Muka)</option>
+                            <option value="Lunas">Lunas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Kontak WhatsApp (Opsional)</label>
+                        <input type="text" x-model="formVendor.kontak" placeholder="Contoh: 628123456789" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-rose-600 text-white font-bold py-3 rounded-xl mt-2 hover:bg-rose-700 shadow-md shadow-rose-600/20">
+                        Simpan Vendor
+                    </button>
+                </form>
             </div>
         </div>
-        
-    </main>
 
+        <!-- MODAL: TAMBAH CHECKLIST -->
+        <div x-show="modal.type === 'checklist'" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+            <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4" @click.outside="closeModal()">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-base font-bold text-slate-800">Tambah Checklist Persiapan</h3>
+                    <button @click="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </div>
+                <form @submit.prevent="submitChecklist()" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Agenda / Tugas</label>
+                        <input type="text" x-model="formChecklist.tugas" required placeholder="Contoh: Fitting Busana Pengantin" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Timeline Pelaksanaan</label>
+                        <select x-model="formChecklist.timeline" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <option value="H-12 Bulan">H-12 Bulan</option>
+                            <option value="H-6 Bulan">H-6 Bulan</option>
+                            <option value="H-3 Bulan">H-3 Bulan</option>
+                            <option value="H-1 Bulan">H-1 Bulan</option>
+                            <option value="H-1 Minggu">H-1 Minggu</option>
+                            <option value="Hari-H">Hari-H</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Prioritas</label>
+                        <select x-model="formChecklist.prioritas" class="w-full border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <option value="Tinggi">Tinggi</option>
+                            <option value="Sedang">Sedang</option>
+                            <option value="Rendah">Rendah</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-rose-600 text-white font-bold py-3 rounded-xl mt-2 hover:bg-rose-700 shadow-md shadow-rose-600/20">
+                        Tambahkan Agenda
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Application Script -->
     <script>
-        // LINK API GOOGLE APPS SCRIPT ANDA
         const API_URL = "https://script.google.com/macros/s/AKfycbymJBdUUBRZBiq5dTw_q_ef6OyCT-nd5S1gB7w_C3UW7_7s0o30GynaQHMVUrsiBoDu/exec";
 
         document.addEventListener('alpine:init', () => {
             Alpine.data('weddingApp', () => ({
                 isLoading: true,
-                loadingMessage: 'Menyinkronkan Data...',
+                loadingMessage: 'Menghubungkan ke Google Sheets...',
                 activeTab: 'dashboard',
                 db: { Settings: {}, Tabungan: [], Budget_Vendor: [], Checklist: [], Tamu: [] },
                 settings: {},
+                countdownText: 'Menghitung Hari-H...',
                 chartInstance: null,
                 toast: { show: false, message: '', isError: false },
-                
-                tabs: [
-                    { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-chart-pie' },
-                    { id: 'tabungan', name: 'Tabungan', icon: 'fas fa-piggy-bank' },
-                    { id: 'budget', name: 'Vendor', icon: 'fas fa-file-invoice-dollar' },
-                    { id: 'checklist', name: 'Checklist', icon: 'fas fa-tasks' }
-                ],
+
+                modal: { type: null },
+
+                formTabungan: { penyetor: 'Pria', nominal: '', catatan: '', tanggal: new Date().toISOString().split('T')[0] },
+                formVendor: { kategori: 'Venue', nama: '', estimasi: '', realisasi: 0, status: 'Belum Dibayar', kontak: '' },
+                formChecklist: { tugas: '', timeline: 'H-6 Bulan', prioritas: 'Sedang' },
 
                 get totalTabungan() {
-                    if(!this.db.Tabungan) return 0;
+                    if (!this.db.Tabungan) return 0;
                     return this.db.Tabungan.reduce((sum, item) => sum + (Number(item.Nominal) || 0), 0);
                 },
 
                 get totalPengeluaran() {
-                    if(!this.db.Budget_Vendor) return 0;
+                    if (!this.db.Budget_Vendor) return 0;
                     return this.db.Budget_Vendor.reduce((sum, item) => sum + (Number(item.Realisasi) || 0), 0);
+                },
+
+                get totalEstimasi() {
+                    if (!this.db.Budget_Vendor) return 0;
+                    return this.db.Budget_Vendor.reduce((sum, item) => sum + (Number(item.Estimasi) || 0), 0);
                 },
 
                 initData() {
@@ -175,22 +459,74 @@
                         if (result.status === 'success') {
                             this.db = result.data;
                             this.settings = this.db.Settings || {};
+                            this.calculateCountdown();
                             this.updateChart();
                         } else {
                             this.showToast('Gagal memuat data dari database', true);
                         }
                     } catch (error) {
                         console.error(error);
-                        this.showToast('Terjadi kesalahan koneksi', true);
+                        this.showToast('Koneksi terganggu', true);
                     } finally {
                         this.isLoading = false;
                     }
                 },
 
-                async testAddData(sheetName, rowData) {
+                openModal(type) {
+                    this.modal.type = type;
+                },
+
+                closeModal() {
+                    this.modal.type = null;
+                },
+
+                async submitTabungan() {
+                    const rowData = [
+                        'T-' + Date.now(),
+                        this.formTabungan.tanggal,
+                        this.formTabungan.penyetor,
+                        Number(this.formTabungan.nominal),
+                        this.formTabungan.catatan
+                    ];
+                    await this.sendToBackend('Tabungan', rowData, 'Setoran tabungan tersimpan');
+                    this.formTabungan.nominal = '';
+                    this.formTabungan.catatan = '';
+                },
+
+                async submitVendor() {
+                    const rowData = [
+                        'V-' + Date.now(),
+                        this.formVendor.kategori,
+                        this.formVendor.nama,
+                        Number(this.formVendor.estimasi),
+                        Number(this.formVendor.realisasi),
+                        this.formVendor.status,
+                        this.formVendor.kontak
+                    ];
+                    await this.sendToBackend('Budget_Vendor', rowData, 'Vendor berhasil ditambahkan');
+                    this.formVendor.nama = '';
+                    this.formVendor.estimasi = '';
+                    this.formVendor.realisasi = 0;
+                    this.formVendor.kontak = '';
+                },
+
+                async submitChecklist() {
+                    const rowData = [
+                        'C-' + Date.now(),
+                        this.formChecklist.tugas,
+                        this.formChecklist.timeline,
+                        this.formChecklist.prioritas,
+                        'Belum'
+                    ];
+                    await this.sendToBackend('Checklist', rowData, 'Agenda checklist ditambahkan');
+                    this.formChecklist.tugas = '';
+                },
+
+                async sendToBackend(sheetName, rowData, successMsg) {
+                    this.closeModal();
                     this.isLoading = true;
-                    this.loadingMessage = 'Menyimpan data...';
-                    
+                    this.loadingMessage = 'Menyimpan ke Google Sheets...';
+
                     const payload = {
                         action: 'insert',
                         sheetName: sheetName,
@@ -203,46 +539,52 @@
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                             body: JSON.stringify(payload)
                         });
-                        const result = await response.json();
-                        
-                        if(result.status === 'success') {
-                            this.showToast('Data berhasil disimpan!');
-                            this.fetchData(); 
+                        const res = await response.json();
+                        if (res.status === 'success') {
+                            this.showToast(successMsg);
+                            await this.fetchData();
                         } else {
-                            this.showToast('Gagal menyimpan data', true);
+                            this.showToast('Gagal menyimpan: ' + res.message, true);
                             this.isLoading = false;
                         }
-                    } catch (error) {
-                        console.error(error);
-                        this.showToast('Terjadi kesalahan koneksi', true);
+                    } catch (e) {
+                        this.showToast('Gagal menghubungi API', true);
                         this.isLoading = false;
                     }
+                },
+
+                calculateCountdown() {
+                    if (!this.settings.Tanggal_Acara) return;
+                    const eventDate = new Date(this.settings.Tanggal_Acara);
+                    const now = new Date();
+                    const diffTime = eventDate - now;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    this.countdownText = diffDays > 0 ? `H-${diffDays} Hari Menuju Akad` : 'Hari Bahagia Tiba';
                 },
 
                 updateChart() {
                     const ctx = document.getElementById('budgetChart');
                     if (!ctx) return;
-                    
-                    if (this.chartInstance) {
-                        this.chartInstance.destroy();
-                    }
+                    if (this.chartInstance) this.chartInstance.destroy();
 
                     this.chartInstance = new Chart(ctx, {
                         type: 'doughnut',
                         data: {
-                            labels: ['Total Tabungan', 'Total Pengeluaran'],
+                            labels: ['Tabungan', 'Pengeluaran'],
                             datasets: [{
-                                data: [this.totalTabungan, this.totalPengeluaran],
+                                data: [this.totalTabungan || 1, this.totalPengeluaran || 0],
                                 backgroundColor: ['#10b981', '#f43f5e'],
-                                borderWidth: 0
+                                borderWidth: 0,
+                                hoverOffset: 4
                             }]
                         },
                         options: {
                             responsive: true,
-                            cutout: '70%',
+                            maintainAspectRatio: false,
                             plugins: {
-                                legend: { position: 'bottom' }
-                            }
+                                legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }
+                            },
+                            cutout: '72%'
                         }
                     });
                 },
@@ -251,11 +593,11 @@
                     this.toast.message = msg;
                     this.toast.isError = isError;
                     this.toast.show = true;
-                    setTimeout(() => { this.toast.show = false; }, 3000);
+                    setTimeout(() => { this.toast.show = false; }, 3500);
                 },
 
-                formatRupiah(number) {
-                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number || 0);
+                formatRupiah(num) {
+                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
                 },
 
                 formatDate(dateStr) {
